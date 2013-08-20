@@ -1,0 +1,6 @@
+name = Views Snapshot
+description = Creates and restore from snapshots of views
+package = Views
+core = 7.x
+
+dependencies[] = views_ui

@@ -1,0 +1,102 @@
+<?php
+
+/**
+ * Implements hook_form_alter().
+ */
+function vs_form_alter(&$form, &$form_state, $form_id) {
+
+	// Add a submit handler to grab the view for our snapshot table
+	if ($form_id == 'views_ui_edit_form') {
+		$form['actions']['save']['#submit'][] = 'vs_snapshot';
+	}
+
+	// Pre-load the import fields with the specified snapshot
+	if ($form_id == 'views_ui_import_page' && strlen(arg(4)) > 0 && strlen(arg(5)) > 0) {
+
+		// Grab the snapshot based on the view name and timestamp
+		$query = db_select('views_view', 'v');
+		$query->join('vs_snapshots', 's', 'v.vid = s.vid');
+		$query->fields('v', array('name'))
+			->fields('s', array('data'))
+			->condition('v.name', arg(4))
+			->condition('s.timestamp', arg(5));
+		$snapshot = $query->execute()->fetchObject();
+
+		$form['name']['#value'] = $snapshot->name;
+		$form['name_override']['#value'] = TRUE;
+		$form['view']['#value'] = $snapshot->data;
+	}
+}
+
+
+/**
+ * Save the exported version of a saved view to a database table
+ */
+function vs_snapshot($form, &$form_state) {
+	$fields = array(
+		'vid' => $form_state['view']->vid,
+		'timestamp' => time(),
+		'data' => $form_state['view']->export(),
+	);
+	$key = array('vid' => $form_state['view']->vid, 'data' => $form_state['view']->export());
+
+	// Using DB merge to prevent saving duplicatate identical version of the view
+	db_merge('vs_snapshots')->key($key)->fields($fields)->execute();
+
+	drupal_set_message("A snapshot was taken of this view.");
+}
+
+
+/**
+ * Implements hook_menu().
+ */
+function vs_menu() {
+	$items['admin/structure/views/view/%/snapshots'] = array(
+		'title' => 'Snapshots',
+		'page callback' => 'vs_snapshots',
+		'type' => MENU_LOCAL_TASK,
+		'access callback' => 'user_access',
+		'access arguments' => array('administer views'),
+		'page arguments' => array(4),
+	);
+	return $items;
+}
+
+
+/**
+ * List all view snapshots
+ *
+ * @param $cache
+ *   $view string view machine name.  Optional; if omitted, show snapshots for all views.
+ *
+ */
+function vs_snapshots($view = NULL) {
+	$query = db_select('views_view', 'v');
+	$query->join('vs_snapshots', 's', 'v.vid = s.vid');
+	$query->fields('v', array('name'))
+		->fields('S', array('timestamp'))
+		->orderBy('v.name', 'ASC')
+		->orderBy('s.timestamp', 'DESC');
+	if ($view) {
+		$query->condition('v.name', $view);
+	} 
+	$snapshots = $query->execute();	
+
+	// Build a simple table with links to the import form
+	$rows = array();	
+	$current_view = '';
+	foreach ($snapshots AS $snapshot) {
+		if ($current_view == $snapshot->name) {
+			$name = '';
+		} else {
+			$name = $current_view = $snapshot->name;
+		}
+		$rows[] = array(
+			$name,
+			l(format_date($snapshot->timestamp), 'admin/structure/views/import/' . $snapshot->name . '/' . $snapshot->timestamp),
+		);
+	}
+
+	$no_results = "This view currently doesn't have any snapshots.  Save the view and a snapshot will be created.";
+	return (count($rows) > 0) ? theme('table', array('rows' => $rows, 'header' => array('View', 'Timestamp'))) : $no_results;
+}
