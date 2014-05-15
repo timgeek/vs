@@ -4,14 +4,14 @@
  * Implements hook_install().
  */
 function vs_install() {
-	return TRUE;
+  return TRUE;
 }
 
 /**
  * Implements hook_uninstall().
  */
 function vs_uninstall() {
-	return TRUE;
+  return TRUE;
 }
 
 /**
@@ -28,20 +28,21 @@ function vs_schema() {
         'description' => 'The view ID of the field, defined by the database.',
       ),
       'timestamp' => array(
-				'type' => 'int',
-				'unsigned' => TRUE,
-				'not null' => TRUE,
-				'default' => 0,
-				'description' => 'The snapshot timestamp.',      
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'The snapshot timestamp.',
       ),
       'data' => array(
-				'type' => 'text',
-				'size' => 'big',
-				'description' => 'Serialized data being stored.',
-				'serialize' => TRUE,
+        'type' => 'text',
+        'size' => 'big',
+        'description' => 'Serialized data being stored.',
+        'serialize' => TRUE,
       ),
     ),
-    'primary key' => array('vid','timestamp'),
+    'primary key' => array('vid', 'timestamp'),
   );
   return $schema;
 }
+
